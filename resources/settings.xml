@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <category label="Nastavení">
+            <setting label="Logovat volaní" type="bool" id="log_api_calls" default="false"/>
+	</category>
+</settings>

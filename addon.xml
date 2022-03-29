@@ -1,0 +1,24 @@
+﻿<addon id="plugin.video.tvcom.cz" name="TVcom.cz" provider-name="waladir" version="1.0.0">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+    <import addon="inputstream.adaptive" version="19.0.0"/>
+  </requires>
+  <extension library="main.py" point="xbmc.python.pluginsource">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="cs_CZ">TVcom.cz</summary>
+    <description lang="cs_CZ">
+České sportovní přenosy včetně archivu
+    </description>    
+    <platform>all</platform>
+    <source>https://github.com/waladir/plugin.video.tvcom.cz</source>
+    <news>
+v1.0.0 (29.3.2022)
+- první verze
+    </news>
+    <assets>
+        <icon>icon.png</icon>
+    </assets>
+  </extension>
+</addon>
