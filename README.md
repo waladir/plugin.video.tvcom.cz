@@ -1,4 +1,4 @@
-<h1>Huste.tv</h1>
+<h1>TVcom.cz</h1>
 <p>
 České sportovní přenosy včetně archivu
 <p>
