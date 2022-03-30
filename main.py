@@ -15,6 +15,7 @@ from urllib.error import HTTPError
 import json
 import codecs
 from datetime import datetime
+import time
 
 _url = sys.argv[0]
 if len(sys.argv) > 1:
@@ -45,6 +46,59 @@ def call_api(url, data):
             return []
     except HTTPError as e:
         return { 'err' : e.reason }      
+
+def load_SportTypes():
+    addon_userdata_dir = translatePath(addon.getAddonInfo('profile'))
+    filename = os.path.join(addon_userdata_dir, 'SportTypes.txt')
+    data = {}
+    if os.path.exists(filename):
+        try:
+            with codecs.open(filename, 'r', encoding='utf-8') as file:
+                for row in file:
+                    data = json.loads(row[:-1])
+        except IOError as error:
+            if error.errno != 2:
+                xbmcgui.Dialog().notification('TVcom.cz', 'Chyba při načtení cache', xbmcgui.NOTIFICATION_ERROR, 5000)
+    return data
+
+def save_SportTypes(data):
+    addon_userdata_dir = translatePath(addon.getAddonInfo('profile'))
+    if not os.path.exists(addon_userdata_dir):
+        os.makedirs(addon_userdata_dir)
+    valid_to = int(time.time()) + 60*60*24
+    data = json.dumps({'data' : data, 'valid_to' : valid_to})
+    filename = os.path.join(addon_userdata_dir, 'SportTypes.txt')
+    try:
+        with codecs.open(filename, 'w', encoding='utf-8') as file:
+            file.write('%s\n' % data)
+    except IOError:
+        xbmcgui.Dialog().notification('TVcom.cz', 'Chyba uložení cache', xbmcgui.NOTIFICATION_ERROR, 5000)  
+
+def load_SportLeagues():
+    addon_userdata_dir = translatePath(addon.getAddonInfo('profile'))
+    filename = os.path.join(addon_userdata_dir, 'SportLeagues.txt')
+    data = {}
+    if os.path.exists(filename):
+        try:
+            with codecs.open(filename, 'r', encoding='utf-8') as file:
+                for row in file:
+                    data = json.loads(row[:-1])
+        except IOError as error:
+            if error.errno != 2:
+                xbmcgui.Dialog().notification('TVcom.cz', 'Chyba při načtení cache', xbmcgui.NOTIFICATION_ERROR, 5000)
+    return data
+
+def save_SportLeagues(data):
+    addon_userdata_dir = translatePath(addon.getAddonInfo('profile'))
+    if not os.path.exists(addon_userdata_dir):
+        os.makedirs(addon_userdata_dir)
+    data = json.dumps(data)
+    filename = os.path.join(addon_userdata_dir, 'SportLeagues.txt')
+    try:
+        with codecs.open(filename, 'w', encoding='utf-8') as file:
+            file.write('%s\n' % data)
+    except IOError:
+        xbmcgui.Dialog().notification('TVcom.cz', 'Chyba uložení cache', xbmcgui.NOTIFICATION_ERROR, 5000)  
 
 def load_mainlist():
     addon_userdata_dir = translatePath(addon.getAddonInfo('profile'))
@@ -151,38 +205,53 @@ def get_SportTypes(filtered = True):
     SportTypes = []
     if filtered == True:
         blacklist = load_blacklist()
-    post = {'Lang' : 'cz'}
-    response = call_api(url = 'http://mobileapi.tvcom.cz/MobileApi2/GetSportType.ashx', data = post)
-    if not 'message' in response or response['message'] != 'OK':
-        xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením sportů', xbmcgui.NOTIFICATION_ERROR, 5000)
-        sys.exit()         
-    
-    for item in response['data']:
-        if item['Id'] > 0:
-            if filtered == False or item['Id'] not in blacklist['SportTypeIds']:
+    data = load_SportTypes()
+    if 'valid_to' not in data or data['valid_to'] < int(time.time()):
+        post = {'Lang' : 'cz'}
+        response = call_api(url = 'http://mobileapi.tvcom.cz/MobileApi2/GetSportType.ashx', data = post)
+        if not 'message' in response or response['message'] != 'OK':
+            xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením sportů', xbmcgui.NOTIFICATION_ERROR, 5000)
+            sys.exit()         
+        for item in response['data']:
+            if item['Id'] > 0:
+                if filtered == False or item['Id'] not in blacklist['SportTypeIds']:
+                    SportTypes.append({'id' : item['Id'], 'sport' : item['Value'], 'other' : False})
+            elif item['Id'] == -1 and 'OtherSports' in item:
                 SportTypes.append({'id' : item['Id'], 'sport' : item['Value'], 'other' : False})
-        elif item['Id'] == -1 and 'OtherSports' in item:
-            SportTypes.append({'id' : item['Id'], 'sport' : item['Value'], 'other' : False})
-            for othersport in item['OtherSports']:
-                if {'id' : othersport['Id'], 'sport' : othersport['Value'], 'other' : False} not in SportTypes:
-                    if filtered == False or othersport['Id'] not in blacklist['SportTypeIds']:
-                        SportTypes.append({'id' : othersport['Id'], 'sport' : othersport['Value'], 'other' : True})
+                for othersport in item['OtherSports']:
+                    if {'id' : othersport['Id'], 'sport' : othersport['Value'], 'other' : False} not in SportTypes:
+                        if filtered == False or othersport['Id'] not in blacklist['SportTypeIds']:
+                            SportTypes.append({'id' : othersport['Id'], 'sport' : othersport['Value'], 'other' : True})
+        save_SportTypes(SportTypes)
+    else:
+        for SportType in data['data']:
+            if filtered == False or SportType['id'] not in blacklist['SportTypeIds']:
+                SportTypes.append({'id' : SportType['id'], 'sport' : SportType['sport'], 'other' : SportType['other']})
     return SportTypes
 
 def get_SportLeagues(SportTypeId, filtered = True):
-    SportLeague = []
+    SportLeagues = []
     if filtered == True:
         blacklist = load_blacklist()  
-    post = {'Lang' : 'cz'}
-    post.update({'SportTypeId' : SportTypeId, 'Live' : 0})
-    response = call_api(url = 'http://mobileapi.tvcom.cz/MobileApi2/GetSportLeague.ashx', data = post)
-    if not 'message' in response or response['message'] != 'OK':
-        xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením lig', xbmcgui.NOTIFICATION_ERROR, 5000)
-        sys.exit()         
-    for item in response['data']:
-        if filtered == False or item['Id'] not in blacklist['SportLeagueIds']:
-            SportLeague.append({'id' : item['Id'], 'league' : item['Value']})
-    return SportLeague
+    data = load_SportLeagues()
+    if str(SportTypeId) not in data or data[str(SportTypeId)]['valid_to'] < int(time.time()):
+        post = {'Lang' : 'cz'}
+        post.update({'SportTypeId' : SportTypeId, 'Live' : 0})
+        response = call_api(url = 'http://mobileapi.tvcom.cz/MobileApi2/GetSportLeague.ashx', data = post)
+        if not 'message' in response or response['message'] != 'OK':
+            xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením lig', xbmcgui.NOTIFICATION_ERROR, 5000)
+            sys.exit()         
+        for item in response['data']:
+            if filtered == False or item['Id'] not in blacklist['SportLeagueIds']:
+                SportLeagues.append({'id' : item['Id'], 'league' : item['Value']})
+        valid_to = int(time.time()) + 60*60*24
+        data.update({SportTypeId: { 'data' : SportLeagues, 'valid_to' : valid_to}})
+        save_SportLeagues(data)
+    else:
+        for SportLeague in data[str(SportTypeId)]['data']:
+            if filtered == False or SportLeague['id'] not in blacklist['SportLeagueIds']:
+                SportLeagues.append({'id' : SportLeague['id'], 'league' : SportLeague['league']})
+    return SportLeagues
 
 def get_Videos(SportTypeId, SportLeagueId, Live):
     streams = []
@@ -198,10 +267,18 @@ def get_Videos(SportTypeId, SportLeagueId, Live):
         sys.exit()    
     for video in response['data']['videos']:
         streams.append({'id' : video['Id'], 'date' : video['Date'], 'title' : video['Value'], 'url' : video['Stream'], 'img' : video['Thumbnail'], 'available' : True})
-       
     return streams
-    
-def play_stream(url):
+
+def get_VideoDetail(VideoId):
+    post = {'Lang' : 'cz'}
+    post.update({'VideoId' : VideoId})
+    response = call_api(url = 'http://mobileapi.tvcom.cz/MobileApi2/GetVideoDetail.ashx', data = post)
+    if not 'message' in response or response['message'] != 'OK':
+        xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením videí', xbmcgui.NOTIFICATION_ERROR, 5000)
+        sys.exit()    
+    return {'StreamHls' : response['data']['StreamHls'], 'Stream' : response['data']['Stream'], 'StreamDash' : response['data']['StreamDash']}
+
+def play_stream(url, VideoId):
     list_item = xbmcgui.ListItem()
     list_item.setProperty('inputstream','inputstream.adaptive')
     list_item.setProperty('inputstream.adaptive.manifest_type','hls')
@@ -214,7 +291,7 @@ def list_streams(streams):
             list_item = xbmcgui.ListItem(label = stream['title'] + '\n[COLOR=gray]' + stream['date'] + '[/COLOR]')
             list_item.setInfo('video', {'title' : stream['title'], 'plot' : stream['title'] + '\n' + stream['date']}) 
             list_item.setArt({'icon': stream['img']})
-            url = get_url(action='play_stream', url = stream['url']) 
+            url = get_url(action='play_stream', url = stream['url'], VideoId = stream['id']) 
             list_item.setContentLookup(False)          
             list_item.setProperty('IsPlayable', 'true')        
             xbmcplugin.addDirectoryItem(_handle, url, list_item, False)
@@ -222,7 +299,7 @@ def list_streams(streams):
             list_item = xbmcgui.ListItem(label = '[COLOR=gray]' + stream['title'] + '\n' + stream['date'] + '[/COLOR]')
             list_item.setInfo('video', {'title' : stream['title'], 'plot' : stream['title'] + '\n' + stream['date']}) 
             list_item.setArt({'icon': stream['img']})
-            url = get_url(action='play_stream', url = stream['url']) 
+            url = get_url(action='play_stream', url = stream['url'], VideoId = stream['id']) 
             xbmcplugin.addDirectoryItem(_handle, url, list_item, False)
 
 def list_league(SportTypeId, SportLeagueId, label):
@@ -270,10 +347,11 @@ def list_today(label):
     if not 'message' in response or response['message'] != 'OK':
         xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením dnešních přenosů', xbmcgui.NOTIFICATION_ERROR, 5000)
         sys.exit()        
+    SportTypes = get_SportTypes()
     SportTypeIds = []
     streams = []
     for sport in response['data']:
-        if int(sport['Lives']) > 0 or int(sport['Future']) > 0:
+        if sport['Id'] in [x['id'] for x in SportTypes] and (int(sport['Lives']) > 0 or int(sport['Future']) > 0):
             SportTypeIds.append(sport['Id'])
     if len(SportTypeIds) > 0:
         for SportTypeId in SportTypeIds:
@@ -284,12 +362,13 @@ def list_today(label):
                 xbmcgui.Dialog().notification('TVcom.cz', 'Problém s načtením dnešních přenosů', xbmcgui.NOTIFICATION_ERROR, 5000)
                 sys.exit()      
             for item in response['data']:
-                for video in item['Videos']:
-                    if video['VideoType'] == 'L':
-                        streams.append({'id' : video['Id'], 'date' : video['Date'], 'title' : video['Value'], 'url' : video['Stream'], 'img' : video['Thumbnail'], 'available' : True})
-                    elif video['VideoType'] == 'F':
-                        streams.append({'id' : video['Id'], 'date' : video['Date'], 'title' : video['Value'], 'url' : video['Stream'], 'img' : video['Thumbnail'], 'available' : False})
-
+                SportLeagues = get_SportLeagues(SportTypeId)
+                if item['Id'] in [x['id'] for x in SportLeagues] or (item['Id'] == 0 and len(SportLeagues) == 0):
+                    for video in item['Videos']:
+                        if video['VideoType'] == 'L':
+                            streams.append({'id' : video['Id'], 'date' : video['Date'], 'title' : video['Value'], 'url' : video['Stream'], 'img' : video['Thumbnail'], 'available' : True})
+                        elif video['VideoType'] == 'F':
+                            streams.append({'id' : video['Id'], 'date' : video['Date'], 'title' : video['Value'], 'url' : video['Stream'], 'img' : video['Thumbnail'], 'available' : False})
     streams = sorted(streams, key=lambda d: d['date'])
     list_streams(streams)
     xbmcplugin.endOfDirectory(_handle)
@@ -406,7 +485,7 @@ def router(paramstring):
         elif params['action'] == 'list_league':
             list_league(params['SportTypeId'], params['SportLeagueId'], params['label'])
         elif params['action'] == 'play_stream':
-            play_stream(params['url'])
+            play_stream(params['url'], params['VideoId'])
         elif params['action'] == 'list_settings':
             list_settings(params['label'])
         elif params['action'] == 'list_bl_SportTypes':

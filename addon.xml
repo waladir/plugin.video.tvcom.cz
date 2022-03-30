@@ -1,4 +1,4 @@
-﻿<addon id="plugin.video.tvcom.cz" name="TVcom.cz" provider-name="waladir" version="1.0.0">
+﻿<addon id="plugin.video.tvcom.cz" name="TVcom.cz" provider-name="waladir" version="1.0.1">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="inputstream.adaptive" version="19.0.0"/>
@@ -14,6 +14,10 @@
     <platform>all</platform>
     <source>https://github.com/waladir/plugin.video.tvcom.cz</source>
     <news>
+v1.0.1 (30.3.2022)
+- přidání filtrování přenosů v Dnes
+- kešování dat stahovaných z TVcom.cz
+
 v1.0.0 (29.3.2022)
 - první verze
     </news>
